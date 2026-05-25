@@ -35,7 +35,6 @@ export default function ChatPage({ params }: { params: Promise<Params> }) {
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
-  const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const LIMIT = 50;
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -164,13 +163,13 @@ export default function ChatPage({ params }: { params: Promise<Params> }) {
           setOtherUser(other);
         }
 
-        const msgRes = await axios.get<Message[]>(
-          `${BACKEND_URL}/api/messages/${conversationId}?page=1&limit=${LIMIT}`,
+        const msgRes = await axios.get<{ messages: Message[]; hasMore: boolean }>(
+          `${BACKEND_URL}/api/messages/${conversationId}?limit=${LIMIT}`,
           { withCredentials: true }
         );
 
-        setMessages(msgRes.data);
-        setHasMore(msgRes.data.length === LIMIT);
+        setMessages(msgRes.data.messages);
+        setHasMore(msgRes.data.hasMore);
 
         // Mark all messages as read
         try {
@@ -196,17 +195,16 @@ export default function ChatPage({ params }: { params: Promise<Params> }) {
   }, [BACKEND_URL, conversationId, userData]);
 
   const loadMoreMessages = async () => {
-    if (!hasMore || isLoadingMore) return;
+    if (!hasMore || isLoadingMore || messages.length === 0) return;
     setIsLoadingMore(true);
     try {
-      const nextPage = page + 1;
-      const { data } = await axios.get<Message[]>(
-        `${BACKEND_URL}/api/messages/${conversationId}?page=${nextPage}&limit=${LIMIT}`,
+      const oldest = messages[0];
+      const { data } = await axios.get<{ messages: Message[]; hasMore: boolean }>(
+        `${BACKEND_URL}/api/messages/${conversationId}?before=${oldest.createdAt}&limit=${LIMIT}`,
         { withCredentials: true }
       );
-      setMessages((prev) => [...data, ...prev]);
-      setHasMore(data.length === LIMIT);
-      setPage(nextPage);
+      setMessages((prev) => [...data.messages, ...prev]);
+      setHasMore(data.hasMore);
     } catch (error) {
       console.error("Failed to load more messages", error);
     } finally {
