@@ -16,6 +16,8 @@ type Params = {
   conversationId: string;
 };
 
+type MessagesResponse = Message[] | { messages?: Message[]; hasMore?: boolean };
+
 export default function ChatPage({ params }: { params: Promise<Params> }) {
 
   const resolvedParams = use(params);
@@ -49,6 +51,17 @@ export default function ChatPage({ params }: { params: Promise<Params> }) {
 
   const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL!;
   const router = useRouter();
+
+  const normalizeMessagesResponse = (data: MessagesResponse) => {
+    if (Array.isArray(data)) {
+      return { messages: data, hasMore: data.length >= LIMIT };
+    }
+
+    return {
+      messages: Array.isArray(data?.messages) ? data.messages : [],
+      hasMore: Boolean(data?.hasMore),
+    };
+  };
 
   const formatTime = (date: string) => {
     return new Date(date).toLocaleTimeString("en-US", {
@@ -163,13 +176,14 @@ export default function ChatPage({ params }: { params: Promise<Params> }) {
           setOtherUser(other);
         }
 
-        const msgRes = await axios.get<{ messages: Message[]; hasMore: boolean }>(
+        const msgRes = await axios.get<MessagesResponse>(
           `${BACKEND_URL}/api/messages/${conversationId}?limit=${LIMIT}`,
           { withCredentials: true }
         );
 
-        setMessages(msgRes.data.messages);
-        setHasMore(msgRes.data.hasMore);
+        const normalizedMessages = normalizeMessagesResponse(msgRes.data);
+        setMessages(normalizedMessages.messages);
+        setHasMore(normalizedMessages.hasMore);
 
         // Mark all messages as read
         try {
@@ -199,12 +213,13 @@ export default function ChatPage({ params }: { params: Promise<Params> }) {
     setIsLoadingMore(true);
     try {
       const oldest = messages[0];
-      const { data } = await axios.get<{ messages: Message[]; hasMore: boolean }>(
+      const { data } = await axios.get<MessagesResponse>(
         `${BACKEND_URL}/api/messages/${conversationId}?before=${oldest.createdAt}&limit=${LIMIT}`,
         { withCredentials: true }
       );
-      setMessages((prev) => [...data.messages, ...prev]);
-      setHasMore(data.hasMore);
+      const normalizedMessages = normalizeMessagesResponse(data);
+      setMessages((prev) => [...normalizedMessages.messages, ...prev]);
+      setHasMore(normalizedMessages.hasMore);
     } catch (error) {
       console.error("Failed to load more messages", error);
     } finally {
