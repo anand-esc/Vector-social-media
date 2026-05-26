@@ -672,6 +672,10 @@ export const searchUsers = async (req, res) => {
         const followingUserIds = new Set(
             (req.user.following || []).map((id) => id.toString())
         );
+        const visibleAuthorIds = new Set([
+            ...followingUserIds,
+            currentUserId.toString(),
+        ]);
 
         const searchedUserIds = users.map((user) => user._id);
         const requestedUsers = await User.find({
@@ -689,16 +693,20 @@ export const searchUsers = async (req, res) => {
             isRequestedByCurrentUser: requestedUserIds.has(user._id.toString()),
         }));
 
+        const privateNotVisibleUsers = await User.find({
+            _id: { $nin: Array.from(visibleAuthorIds) },
+            isPrivate: true,
+        })
+            .select("_id")
+            .lean();
+
+        const privateNotVisibleIds = privateNotVisibleUsers.map((user) => user._id);
+
         const posts = await Post.find({
             $and: [
                 { $text: { $search: query } },
                 { author: { $nin: postExcludeIds } },
-                { 
-                    $or: [
-                        { authorIsPrivate: { $ne: true } },
-                        { author: { $in: [...(req.user.following || []), currentUserId] } }
-                    ]
-                }
+                { author: { $nin: privateNotVisibleIds } }
             ]
         })
             .populate("author", "username")
