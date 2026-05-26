@@ -77,6 +77,8 @@ export type Message = {
   isDeleted?: boolean;
   deletedAt?: string | null;
 
+  isRead?: boolean;
+
   createdAt: string;
   conversation: string;
 };

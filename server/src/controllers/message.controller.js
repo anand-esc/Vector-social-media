@@ -210,6 +210,17 @@ export const markConversationAsRead = async (req, res) => {
       { $set: { isRead: true } }
     );
 
+    const otherParticipant = conversation.participants.find(
+      (p) => p.toString() !== req.user._id.toString()
+    );
+
+    if (otherParticipant) {
+      getIO().to(otherParticipant.toString()).emit("conversation_read", {
+        conversationId,
+        readBy: req.user._id,
+      });
+    }
+
     res.json({ message: "Messages marked as read" });
   } catch (error) {
     res.status(500).json({ message: error.message });

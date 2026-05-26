@@ -6,7 +6,7 @@ import axios from "axios";
 import { socket } from "@/socket/socket";
 import { useAppContext } from "@/context/AppContext";
 import { useRouter } from "next/navigation";
-import { Trash2, ArrowLeft, MoreHorizontal, ChevronDown } from "lucide-react";
+import { Trash2, ArrowLeft, MoreHorizontal, ChevronDown, Check, CheckCheck } from "lucide-react";
 import ConfirmModal from "@/components/modals/DeleteWarning";
 import SkeletonLoader from "@/components/loaders/SkeletonLoader";
 import { toast } from "react-toastify";
@@ -109,6 +109,14 @@ export default function ChatPage({ params }: { params: Promise<Params> }) {
         if (message.conversation !== conversationId) return prev;
         return [...prev, message];
       });
+
+      if (message.conversation === conversationId && message.sender._id !== userData.id) {
+        axios.patch(
+          `${BACKEND_URL}/api/messages/${conversationId}/read-all`,
+          {},
+          { withCredentials: true }
+        ).catch((err) => console.error("Failed to mark incoming message as read:", err));
+      }
     };
 
     const handleDelete = ({
@@ -141,17 +149,34 @@ export default function ChatPage({ params }: { params: Promise<Params> }) {
     const handleStopTyping = ({ conversationId: cId }: { conversationId: string }) => {
         if (cId === conversationId) setPartnerTyping(false);
     };
+    const handleConversationRead = ({
+      conversationId: convo,
+      readBy,
+    }: {
+      conversationId: string;
+      readBy: string;
+    }) => {
+      if (convo === conversationId) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.sender._id !== readBy ? { ...m, isRead: true } : m
+          )
+        );
+      }
+    };
     socket.on("receive_message", handleReceiveMessage);
     socket.on("message_deleted", handleDelete);
     socket.on("typing", handleTyping);
     socket.on("stop_typing", handleStopTyping);
+    socket.on("conversation_read", handleConversationRead);
     return () => {
         socket.off("receive_message", handleReceiveMessage);
         socket.off("message_deleted", handleDelete);
         socket.off("typing", handleTyping);
         socket.off("stop_typing", handleStopTyping);
+        socket.off("conversation_read", handleConversationRead);
     };
-  }, [userData, conversationId]);
+  }, [userData, conversationId, BACKEND_URL]);
 
   // FETCH CHAT
   useEffect(() => {
@@ -418,22 +443,22 @@ export default function ChatPage({ params }: { params: Promise<Params> }) {
         {isLoadingMessages ? (
           <div className="flex flex-col gap-4 w-full mt-2 px-2">
             <div className="flex justify-start">
-              <SkeletonLoader count={1} height="h-10" className="w-3/4 max-w-[220px] [&>div]:!rounded-2xl [&>div]:!rounded-bl-md" />
+              <SkeletonLoader count={1} height="h-10" className="w-3/4 max-w-55 [&>div]:rounded-2xl! [&>div]:rounded-bl-md!" />
             </div>
             <div className="flex justify-start">
-              <SkeletonLoader count={1} height="h-16" className="w-4/5 max-w-[280px] [&>div]:!rounded-2xl [&>div]:!rounded-bl-md" />
+              <SkeletonLoader count={1} height="h-16" className="w-4/5 max-w-70 [&>div]:rounded-2xl! [&>div]:rounded-bl-md!" />
             </div>
             <div className="flex justify-end">
-              <SkeletonLoader count={1} height="h-10" className="w-2/3 max-w-[240px] [&>div]:!rounded-2xl [&>div]:!rounded-br-md" />
+              <SkeletonLoader count={1} height="h-10" className="w-2/3 max-w-60 [&>div]:rounded-2xl! [&>div]:rounded-br-md!" />
             </div>
             <div className="flex justify-start">
-              <SkeletonLoader count={1} height="h-10" className="w-1/2 max-w-[160px] [&>div]:!rounded-2xl [&>div]:!rounded-bl-md" />
+              <SkeletonLoader count={1} height="h-10" className="w-1/2 max-w-40 [&>div]:rounded-2xl! [&>div]:rounded-bl-md!" />
             </div>
             <div className="flex justify-end">
-              <SkeletonLoader count={1} height="h-12" className="w-3/4 max-w-[260px] [&>div]:!rounded-2xl [&>div]:!rounded-br-md" />
+              <SkeletonLoader count={1} height="h-12" className="w-3/4 max-w-65 [&>div]:rounded-2xl! [&>div]:rounded-br-md!" />
             </div>
             <div className="flex justify-end">
-              <SkeletonLoader count={1} height="h-10" className="w-1/3 max-w-[140px] [&>div]:!rounded-2xl [&>div]:!rounded-br-md" />
+              <SkeletonLoader count={1} height="h-10" className="w-1/3 max-w-35 [&>div]:rounded-2xl! [&>div]:rounded-br-md!" />
             </div>
           </div>
         ) : messages.length === 0 ? (
@@ -515,7 +540,7 @@ export default function ChatPage({ params }: { params: Promise<Params> }) {
                     )}
 
                     <p
-                      className={`whitespace-pre-wrap break-words leading-relaxed ${isMe && !m.isDeleted ? "pr-6" : ""
+                      className={`whitespace-pre-wrap wrap-break-word leading-relaxed ${isMe && !m.isDeleted ? "pr-6" : ""
                         }`}
                     >
                       {m.isDeleted ? (
@@ -526,8 +551,15 @@ export default function ChatPage({ params }: { params: Promise<Params> }) {
                         m.content
                       )}
 
-                      <span className="ml-2 text-[10px] opacity-70 relative top-0.5">
+                      <span className="ml-2 text-[10px] opacity-70 relative top-0.5 inline-flex items-center gap-0.5">
                         {formatTime(m.createdAt)}
+                        {isMe && !m.isDeleted && (
+                          m.isRead ? (
+                            <CheckCheck size={15} strokeWidth={2.5} className="text-green-400 ml-1 shrink-0" />
+                          ) : (
+                            <Check size={15} strokeWidth={2.5} className="text-white ml-1 shrink-0" />
+                          )
+                        )}
                       </span>
                     </p>
 
