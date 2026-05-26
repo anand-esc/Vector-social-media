@@ -57,6 +57,7 @@ export const createPost = async (req, res) => {
 
         const post = await Post.create({ 
             author: req.user.id, 
+            authorIsPrivate: req.user.isPrivate || false,
             content: content || "", 
             intent, 
             image, 
@@ -91,22 +92,16 @@ export const getPosts = async (req, res) => {
             const blockedIds = req.user.blockedUsers || [];
             let excludeUserIds = [...blockedIds, ...blockerIds];
 
-            const privateUsers = await User.find({
-                _id: { $nin: [...(req.user.following || []), currentUserId] },
-                isPrivate: true
-            }).select("_id");
-            const privateUserIds = privateUsers.map(u => u._id);
-            excludeUserIds = [...excludeUserIds, ...privateUserIds];
-
             if (excludeUserIds.length > 0) {
                 filter = { author: { $nin: excludeUserIds } };
             }
+
+            filter.$or = [
+                { authorIsPrivate: { $ne: true } },
+                { author: { $in: [...(req.user.following || []), currentUserId] } }
+            ];
         } else {
-            const privateUsers = await User.find({ isPrivate: true }).select("_id");
-            const privateUserIds = privateUsers.map(u => u._id);
-            if (privateUserIds.length > 0) {
-                filter = { author: { $nin: privateUserIds } };
-            }
+            filter.authorIsPrivate = { $ne: true };
         }
 
         if (cursor) {
@@ -166,22 +161,16 @@ export const searchPosts = async (req, res) => {
             const blockedIds = req.user.blockedUsers || [];
             let excludeUserIds = [...blockedIds, ...blockerIds];
 
-            const privateUsers = await User.find({
-                _id: { $nin: [...(req.user.following || []), currentUserId] },
-                isPrivate: true
-            }).select("_id");
-            const privateUserIds = privateUsers.map(u => u._id);
-            excludeUserIds = [...excludeUserIds, ...privateUserIds];
-
             if (excludeUserIds.length > 0) {
                 filter.author = { $nin: excludeUserIds };
             }
+
+            filter.$or = [
+                { authorIsPrivate: { $ne: true } },
+                { author: { $in: [...(req.user.following || []), currentUserId] } }
+            ];
         } else {
-            const privateUsers = await User.find({ isPrivate: true }).select("_id");
-            const privateUserIds = privateUsers.map(u => u._id);
-            if (privateUserIds.length > 0) {
-                filter.author = { $nin: privateUserIds };
-            }
+            filter.authorIsPrivate = { $ne: true };
         }
 
         if (cursor) {
@@ -571,28 +560,18 @@ export const getTopPostsOfWeek = async (req, res) => {
             const blockedIds = req.user.blockedUsers || [];
             let excludeUserIds = [...blockedIds, ...blockerIds];
 
-            const privateUsers = await User.find({
-                _id: { $nin: [...(req.user.following || []), currentUserId] },
-                isPrivate: true
-            }).select("_id");
-            const privateUserIds = privateUsers.map((user) => user._id);
-            excludeUserIds = [...excludeUserIds, ...privateUserIds];
-
             if (excludeUserIds.length > 0) {
                 filter = {
                     ...filter,
                     author: { $nin: excludeUserIds },
                 };
             }
+            filter.$or = [
+                { authorIsPrivate: { $ne: true } },
+                { author: { $in: [...(req.user.following || []), currentUserId] } }
+            ];
         } else {
-            const privateUsers = await User.find({ isPrivate: true }).select("_id");
-            const privateUserIds = privateUsers.map((user) => user._id);
-            if (privateUserIds.length > 0) {
-                filter = {
-                    ...filter,
-                    author: { $nin: privateUserIds },
-                };
-            }
+            filter.authorIsPrivate = { $ne: true };
         }
 
         const posts = await Post.aggregate([
@@ -672,28 +651,18 @@ export const getTopPostsOfMonth = async (req, res) => {
             const blockedIds = req.user.blockedUsers || [];
             let excludeUserIds = [...blockedIds, ...blockerIds];
 
-            const privateUsers = await User.find({
-                _id: { $nin: [...(req.user.following || []), currentUserId] },
-                isPrivate: true
-            }).select("_id");
-            const privateUserIds = privateUsers.map((user) => user._id);
-            excludeUserIds = [...excludeUserIds, ...privateUserIds];
-
             if (excludeUserIds.length > 0) {
                 filter = {
                     ...filter,
                     author: { $nin: excludeUserIds },
                 };
             }
+            filter.$or = [
+                { authorIsPrivate: { $ne: true } },
+                { author: { $in: [...(req.user.following || []), currentUserId] } }
+            ];
         } else {
-            const privateUsers = await User.find({ isPrivate: true }).select("_id");
-            const privateUserIds = privateUsers.map((user) => user._id);
-            if (privateUserIds.length > 0) {
-                filter = {
-                    ...filter,
-                    author: { $nin: privateUserIds },
-                };
-            }
+            filter.authorIsPrivate = { $ne: true };
         }
 
         const posts = await Post.aggregate([

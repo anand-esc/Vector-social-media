@@ -165,7 +165,10 @@ export const updateProfile = async (req, res) => {
             if (isPrivate === false && user.isPrivate === true) {
                 user.followRequests = [];
             }
-            user.isPrivate = isPrivate;
+            if (user.isPrivate !== isPrivate) {
+                user.isPrivate = isPrivate;
+                await Post.updateMany({ author: userId }, { authorIsPrivate: isPrivate });
+            }
         }
         await user.save();
         return res.status(200).json({
@@ -670,23 +673,6 @@ export const searchUsers = async (req, res) => {
             (req.user.following || []).map((id) => id.toString())
         );
 
-        const privateNotFollowed = await User.find({
-            _id: {
-                $nin: [
-                    currentUserId,
-                    ...blockedIds,
-                    ...blockerIds,
-                    ...(req.user.following || []),
-                ],
-            },
-            isPrivate: true,
-        })
-            .select("_id")
-            .lean();
-
-        const privateNotFollowedIds = privateNotFollowed.map((u) => u._id);
-        const finalPostExcludeIds = [...postExcludeIds, ...privateNotFollowedIds];
-
         const searchedUserIds = users.map((user) => user._id);
         const requestedUsers = await User.find({
             _id: { $in: searchedUserIds },
@@ -706,7 +692,13 @@ export const searchUsers = async (req, res) => {
         const posts = await Post.find({
             $and: [
                 { $text: { $search: query } },
-                { author: { $nin: finalPostExcludeIds } }
+                { author: { $nin: postExcludeIds } },
+                { 
+                    $or: [
+                        { authorIsPrivate: { $ne: true } },
+                        { author: { $in: [...(req.user.following || []), currentUserId] } }
+                    ]
+                }
             ]
         })
             .populate("author", "username")
