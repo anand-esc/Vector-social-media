@@ -25,6 +25,8 @@ export default function CreatePostModal({onClose,onPostCreated}: CreateModalProp
     const [isDragActive, setIsDragActive] = useState(false);
     const [dragCounter, setDragCounter] = useState(0);
     const [showGuidelines, setShowGuidelines] = useState(false);
+    const [lastSaved, setLastSaved] = useState<Date | null>(null);
+    const [autoSaveStatus, setAutoSaveStatus] = useState("");
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const router = useRouter();
