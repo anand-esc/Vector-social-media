@@ -26,6 +26,7 @@ jest.unstable_mockModule('../src/socket/socket.js', () => ({
 const { default: request } = await import('supertest');
 const { default: app } = await import('../src/app.js');
 const { default: User } = await import('../src/models/user.model.js');
+const { default: Follow } = await import('../src/models/follow.model.js');
 const { default: Post } = await import('../src/models/post.model.js');
 const { default: Comment } = await import('../src/models/comment.model.js');
 const { default: Notification } = await import('../src/models/notification.model.js');
@@ -513,6 +514,17 @@ describe('Post and Comment Flows', () => {
       expect(commentRes.body.message).toContain('Follow them to comment');
       expect(await Comment.countDocuments({ post: privatePost._id })).toBe(0);
       expect(await Notification.countDocuments({ recipient: privateUser._id, type: 'comment', post: privatePost._id })).toBe(0);
+
+      // Also verify that a follower CAN comment
+      const outsider = await User.findOne({ username: outsiderData.username });
+      await Follow.create({ follower: outsider._id, following: privateUser._id, status: 'accepted' });
+
+      const followerCommentRes = await request(app)
+        .post(`/api/comments/${privatePost._id}`)
+        .set('Cookie', outsiderCookie)
+        .send({ content: "I follow this account" });
+
+      expect(followerCommentRes.status).toBe(201);
     });
   });
 
