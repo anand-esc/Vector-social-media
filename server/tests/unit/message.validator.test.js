@@ -46,13 +46,15 @@ describe("sendMessageSchema validator", () => {
   });
 
   test("rejects when content is missing entirely", () => {
-    const { content: _c, ...withoutContent } = validPayload;
+    const withoutContent = { ...validPayload };
+    delete withoutContent.content;
     const result = sendMessageSchema.safeParse(withoutContent);
     expect(result.success).toBe(false);
   });
 
   test("rejects when conversationId is missing", () => {
-    const { conversationId: _id, ...withoutId } = validPayload;
+    const withoutId = { ...validPayload };
+    delete withoutId.conversationId;
     const result = sendMessageSchema.safeParse(withoutId);
     expect(result.success).toBe(false);
   });
